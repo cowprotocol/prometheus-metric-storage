@@ -58,7 +58,7 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
                     .iter()
                     .map(|field| field.ident.clone().unwrap()),
             );
-            let init = initializers(fields.named.into_iter())?;
+            let init = initializers(fields.named.into_iter(), subsystem)?;
             let init = quote! { Self { #( #ident: #init , )* } };
             (init, reg)
         }
@@ -67,7 +67,7 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
                 index: i as _,
                 span: Span::call_site(),
             }));
-            let init = initializers(fields.unnamed.into_iter())?;
+            let init = initializers(fields.unnamed.into_iter(), subsystem)?;
             let init = quote! { Self ( #(#init , )* ) };
             (init, reg)
         }
@@ -93,8 +93,6 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
             fn new_unreg_from_labels(
                 const_labels: std::collections::HashMap<String, String>
             ) -> prometheus_metric_storage::Result<Self> {
-                let subsystem = #subsystem;
-
                 Ok(#init)
             }
 
@@ -117,7 +115,7 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
     })
 }
 
-fn initializers(fields: impl Iterator<Item = Field>) -> Result<Vec<TokenStream>> {
+fn initializers(fields: impl Iterator<Item = Field>, subsystem: String) -> Result<Vec<TokenStream>> {
     fields
         .map(|field| {
             let MetricAttrs {
@@ -154,7 +152,7 @@ fn initializers(fields: impl Iterator<Item = Field>) -> Result<Vec<TokenStream>>
             let opts = quote_spanned! { field.span() =>
                 prometheus_metric_storage::Opts {
                     namespace: "".to_string(),
-                    subsystem: subsystem.to_string(),
+                    subsystem: #subsystem.to_string(),
                     name: #name.to_string(),
                     help: #help.to_string(),
                     const_labels: const_labels.clone(),
