@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "prometheus-metric-storage",
+    "prometheus-metric-storage-derive",
+    "example"
+]
