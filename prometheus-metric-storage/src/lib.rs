@@ -24,7 +24,10 @@ pub trait MetricStorage: Sized {
     /// If the given const labels do not match the ones declared
     /// in the `metric(labels(...))` attribute of the struct
     /// that's being created, this function will return an error.
-    fn from_const_labels(registry: &Registry, const_labels: HashMap<String, String>) -> Result<Self> {
+    fn from_const_labels(
+        registry: &Registry,
+        const_labels: HashMap<String, String>,
+    ) -> Result<Self> {
         let storage = Self::from_const_labels_unregistered(const_labels)?;
         storage.register(registry)?;
         Ok(storage)

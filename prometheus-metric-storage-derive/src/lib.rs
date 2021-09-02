@@ -290,7 +290,7 @@ impl MetricAttrs {
             let label_span = label.span();
             let value = Self::value_to_string(Self::nested_meta_to_value(label)?)?;
             if labels.contains(&value) {
-                return Err(Error::new(label_span, "duplicate label"))
+                return Err(Error::new(label_span, "duplicate label"));
             }
             labels.push(value)
         }
