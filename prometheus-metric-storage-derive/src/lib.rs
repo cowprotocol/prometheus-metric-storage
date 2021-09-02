@@ -35,22 +35,11 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
 
     let subsystem = attrs.subsystem.unwrap_or_else(|| "".to_string());
 
-    let (labels, labels_init) = if let Some(labels) = attrs.labels {
-        let idents: Vec<_> = labels
-            .iter()
-            .map(|l| Ident::new(l, Span::call_site()))
-            .collect();
-
-        let labels_init = quote! {
-            #(
-                const_labels.insert(#labels.to_string(), #idents);
-            )*
-        };
-
-        (idents, labels_init)
-    } else {
-        (Vec::new(), quote! {})
-    };
+    let labels = attrs.labels.unwrap_or_default();
+    let label_idents: Vec<_> = labels
+        .iter()
+        .map(|l| Ident::new(l, Span::call_site()))
+        .collect();
 
     let (init, reg) = match input.fields {
         Fields::Named(fields) => {
@@ -66,7 +55,7 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
                     .map(|field| field.ident.clone().unwrap()),
             );
             let init = initializers(fields.named.into_iter(), subsystem)?;
-            let init = quote! { Self { #( #ident: #init , )* } };
+            let init = quote! { Self { #(#ident: #init,)* } };
             (init, reg)
         }
         Fields::Unnamed(fields) => {
@@ -75,7 +64,7 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
                 span: Span::call_site(),
             }));
             let init = initializers(fields.unnamed.into_iter(), subsystem)?;
-            let init = quote! { Self ( #(#init , )* ) };
+            let init = quote! { Self ( #(#init,)* ) };
             (init, reg)
         }
         Fields::Unit => (quote! { Self }, quote! {}),
@@ -89,15 +78,8 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
             unused,
             unused_mut
         )]
-        impl #name {
-            fn new_unreg(#(#labels: String,)*) -> prometheus_metric_storage::Result<Self> {
-                let mut const_labels = std::collections::HashMap::new();
-                #labels_init
-
-                Self::new_unreg_from_labels(const_labels)
-            }
-
-            fn new_unreg_from_labels(
+        impl prometheus_metric_storage::MetricStorage for #name {
+            fn from_const_labels_unregistered(
                 const_labels: std::collections::HashMap<String, String>
             ) -> prometheus_metric_storage::Result<Self> {
                 Ok(#init)
@@ -107,22 +89,35 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
                 &self, registry: &prometheus_metric_storage::Registry
             ) -> prometheus_metric_storage::Result<()> {
                 #reg
-
                 Ok(())
+            }
+        }
+
+        impl #name {
+            fn new_unregistered(
+                #(#label_idents: String,)*
+            ) -> prometheus_metric_storage::Result<Self> {
+                let mut const_labels = std::collections::HashMap::new();
+                #(const_labels.insert(#labels.to_string(), #label_idents);)*
+
+                <Self as prometheus_metric_storage::MetricStorage>::from_const_labels_unregistered(const_labels)
             }
 
             fn new(
-                registry: &prometheus_metric_storage::Registry, #(#labels: String,)*
+                registry: &prometheus_metric_storage::Registry, #(#label_idents: String,)*
             ) -> prometheus_metric_storage::Result<Self> {
-                let metrics = Self::new_unreg(#(#labels,)*)?;
-                metrics.register(registry)?;
+                let metrics = Self::new_unregistered(#(#label_idents,)*)?;
+                <Self as prometheus_metric_storage::MetricStorage>::register(&metrics, registry)?;
                 Ok(metrics)
             }
         }
     })
 }
 
-fn initializers(fields: impl Iterator<Item = Field>, subsystem: String) -> Result<Vec<TokenStream>> {
+fn initializers(
+    fields: impl Iterator<Item = Field>,
+    subsystem: String,
+) -> Result<Vec<TokenStream>> {
     fields
         .map(|field| {
             let MetricAttrs {
@@ -165,9 +160,7 @@ fn initializers(fields: impl Iterator<Item = Field>, subsystem: String) -> Resul
                     const_labels: const_labels.clone(),
                     variable_labels: {
                         let mut labels = Vec::new();
-                        #(
-                            labels.push(#labels.to_string());
-                        )*
+                        #(labels.push(#labels.to_string());)*
                         labels
                     }
                 }
@@ -179,9 +172,7 @@ fn initializers(fields: impl Iterator<Item = Field>, subsystem: String) -> Resul
                         #opts,
                         {
                             let mut buckets = Vec::new();
-                            #(
-                                labels.push(#buckets);
-                            )*
+                            #(buckets.push(#buckets);)*
                             buckets
                         }
                     )?
@@ -196,11 +187,7 @@ fn initializers(fields: impl Iterator<Item = Field>, subsystem: String) -> Resul
 }
 
 fn registrators<I: Iterator<Item = T>, T: ToTokens>(ident: I) -> TokenStream {
-    quote! {
-        #(
-            registry.register(Box::new(self.#ident.clone()))?;
-        )*
-    }
+    quote! { #(registry.register(Box::new(self.#ident.clone()))?;)* }
 }
 
 #[derive(Default, Debug)]
@@ -300,7 +287,12 @@ impl MetricAttrs {
 
         let mut labels = Vec::new();
         for label in Self::meta_to_list(meta)?.nested {
-            labels.push(Self::value_to_string(Self::nested_meta_to_value(label)?)?)
+            let label_span = label.span();
+            let value = Self::value_to_string(Self::nested_meta_to_value(label)?)?;
+            if labels.contains(&value) {
+                return Err(Error::new(label_span, "duplicate label"))
+            }
+            labels.push(value)
         }
         self.labels = Some(labels);
 

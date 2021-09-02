@@ -12,6 +12,39 @@ pub use prometheus::{Opts, Registry, Result};
 #[doc(hidden)]
 pub use prometheus_metric_storage_derive::MetricStorage;
 
+/// This trait should be derived with `#[derive]` statement.
+pub trait MetricStorage: Sized {
+    /// Create a new instance of this storage and register all of its metrics
+    /// in the given registry.
+    ///
+    /// For any given metric storage, this function should not be called twice
+    /// with the same values for const labels. Otherwise, the registry will
+    /// complain about a metric being registered twice.
+    ///
+    /// If the given const labels do not match the ones declared
+    /// in the `metric(labels(...))` attribute of the struct
+    /// that's being created, this function will return an error.
+    fn from_const_labels(registry: &Registry, const_labels: HashMap<String, String>) -> Result<Self> {
+        let storage = Self::from_const_labels_unregistered(const_labels)?;
+        storage.register(registry)?;
+        Ok(storage)
+    }
+
+    /// Create a new instance of this storage and initialize all of its metrics.
+    ///
+    /// This function does not register the created metrics in any storage.
+    ///
+    /// If the given const labels do not match the ones declared
+    /// in the `metric(labels(...))` attribute of the struct
+    /// that's being created, this function will return an error.
+    fn from_const_labels_unregistered(const_labels: HashMap<String, String>) -> Result<Self>;
+
+    /// Register all metrics from this storage in the given registry.
+    ///
+    /// Note that
+    fn register(&self, registry: &Registry) -> Result<()>;
+}
+
 /// This trait is used to initialize metrics.
 ///
 /// Generated constructor will pass all its options to this trait's
