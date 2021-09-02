@@ -1,9 +1,15 @@
 [package]
 name = "prometheus-metric-storage-derive"
 version = "0.1.0"
+authors = ["Tamika Nomara <taminomara@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT"
+repository = "https://github.com/taminomara/prometheus-metric-storage"
+homepage = "https://github.com/taminomara/prometheus-metric-storage"
+documentation = "https://docs.rs/prometheus-metric-storage"
+description = """
+Implementation details for prometheus-metric-storage
+"""
 
 [lib]
 proc-macro = true
