@@ -17,7 +17,7 @@ struct Metrics {
 fn main() {
     let registry = prometheus::default_registry();
 
-    let metrics: Metrics = Metrics::new(registry, /* endpoint = */ "infura_mainnet".into()).unwrap();
+    let metrics: Metrics = Metrics::new(registry, "infura_mainnet".into()).unwrap();
     metrics.inflight.inc();
     metrics.requests_finished.with_label_values(&["200"]).inc();
     metrics.requests_duration_seconds.observe(0.015);
