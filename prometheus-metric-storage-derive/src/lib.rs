@@ -1,3 +1,9 @@
+//! This crate is an implementation detail for [`prometheus-metric-storage`][1].
+//!
+//! [1]: https://crates.io/crates/prometheus-metric-storage
+
+#![deny(unsafe_code)]
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
@@ -6,6 +12,7 @@ use syn::{
     NestedMeta, Result,
 };
 
+#[doc(hidden)]
 #[proc_macro_derive(MetricStorage, attributes(metric))]
 pub fn metric_storage(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

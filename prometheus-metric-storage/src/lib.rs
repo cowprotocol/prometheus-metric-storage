@@ -1,3 +1,11 @@
+//! Derive macro to instantiate prometheus metrics with ease.
+// TODO: docs
+
+#![deny(unsafe_code, missing_docs)]
+
+use std::collections::HashMap;
+
+/// Re-export parts of prometheus interface for use in generated code.
 #[doc(hidden)]
 pub use prometheus::{Opts, Registry, Result};
 
@@ -7,12 +15,26 @@ pub use prometheus_metric_storage_derive::MetricStorage;
 /// This trait is used to initialize metrics.
 ///
 /// Generated constructor will pass all its options to this trait's
-/// [init] function in order to initialize a field.
+/// [`init`] function in order to initialize a field. If you're using
+/// custom metric collectors, you'll need to implement
+/// this trait for them.
+///
+/// [`init`]: MetricInit::init
 pub trait MetricInit: Sized {
+    /// Initialize a new instance of the metric using the given options.
     fn init(opts: prometheus::Opts) -> Result<Self>;
 }
 
+/// This trait is used to initialize metrics that accept buckets.
+///
+/// This trait is similar to [`MetricInit`], but accepts histogram-specific
+/// options.
+///
+/// Note that histogram metrics should still be initializeable
+/// with [`MetricInit`]. This trait is used only when histogram-specific
+/// options appear in metric config.
 pub trait HistMetricInit: Sized {
+    /// Initialize a new instance of the metric using the given options.
     fn init(opts: prometheus::Opts, buckets: Vec<f64>) -> Result<Self>;
 }
 
