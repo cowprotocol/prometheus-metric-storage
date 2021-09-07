@@ -79,6 +79,10 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
             unused_mut
         )]
         impl prometheus_metric_storage::MetricStorage for #name {
+            fn const_labels() -> &'static [&'static str] {
+                &[#(#labels,)*]
+            }
+
             fn from_const_labels_unregistered(
                 const_labels: std::collections::HashMap<String, String>
             ) -> prometheus_metric_storage::Result<Self> {
@@ -93,6 +97,13 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
             }
         }
 
+        #[allow(
+            clippy::vec_init_then_push,
+            clippy::redundant_clone,
+            clippy::let_and_return,
+            unused,
+            unused_mut
+        )]
         impl #name {
             fn new_unregistered(
                 #(#label_idents: String,)*
@@ -109,6 +120,15 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
                 let metrics = Self::new_unregistered(#(#label_idents,)*)?;
                 <Self as prometheus_metric_storage::MetricStorage>::register(&metrics, registry)?;
                 Ok(metrics)
+            }
+
+            fn instance(
+                registry: &prometheus_metric_storage::StorageRegistry, #(#label_idents: String,)*
+            ) -> prometheus_metric_storage::Result<Self> {
+                let mut const_labels = std::collections::HashMap::new();
+                #(const_labels.insert(#labels.to_string(), #label_idents);)*
+
+                registry.get_or_create_storage::<Self>(const_labels)
             }
         }
     })
