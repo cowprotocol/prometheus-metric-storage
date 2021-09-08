@@ -12,6 +12,7 @@ use syn::{
     NestedMeta, Result,
 };
 
+/// See [`prometheus_metric_storage::MetricStorage`] for details.
 #[doc(hidden)]
 #[proc_macro_derive(MetricStorage, attributes(metric))]
 pub fn metric_storage(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
