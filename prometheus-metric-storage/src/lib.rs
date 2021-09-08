@@ -1,7 +1,7 @@
 //! Derive macro to instantiate prometheus metrics with ease.
 // TODO: docs
 
-#![deny(unsafe_code, missing_docs)]
+#![deny(missing_docs)]
 
 use prometheus::core::Collector;
 use prometheus::proto::MetricFamily;
@@ -9,6 +9,7 @@ use std::any::{Any, TypeId};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use std::pin::Pin;
 use std::sync::Mutex;
 
 /// Re-export parts of prometheus interface for use in generated code.
@@ -18,12 +19,18 @@ pub use prometheus::{Error, Opts, Registry, Result};
 #[doc(hidden)]
 pub use prometheus_metric_storage_derive::MetricStorage;
 
+/// Identifier of a single storage in [`StorageRegistry`].
+///
+/// Storage ID consists of a type ID and static label values
+/// concatenated into a single string with zero bytes as a delimiter.
+type StorageId = (TypeId, String);
+
 /// Wrapper for prometheus' [`Registry`] that keeps track of registered
 /// storages, and helps to avoid 'already registered' errors without
 /// having to use lazy statics.
 pub struct StorageRegistry {
     registry: Registry,
-    storages: Mutex<HashMap<(TypeId, String), Box<dyn Any>>>,
+    storages: Mutex<HashMap<StorageId, Pin<Box<dyn Any + Send + Sync>>>>,
 }
 
 impl StorageRegistry {
@@ -78,21 +85,29 @@ impl StorageRegistry {
     ///
     /// Returns an error if the given metric storage was not registered
     /// with the given labels, or if the given labels are invalid.
-    pub fn get_storage<T: MetricStorage + 'static>(
+    pub fn get_storage<T: MetricStorage + Send + Sync + 'static>(
         &self,
         const_labels: HashMap<String, String>,
-    ) -> Result<T> {
-        Self::verify_const_labels(T::const_labels(), &const_labels)?;
-        let labels_hash = Self::hash_labels(T::const_labels(), &const_labels);
+    ) -> Result<&T> {
+        // Safety:
+        //
+        // See `get_or_create_storage` for details.
+        unsafe {
+            let metric_id = Self::make_id::<T>(&const_labels)?;
 
-        let mut storages = self.storages.lock().unwrap();
+            let mut storages = self.storages.lock().unwrap();
 
-        match storages.entry((TypeId::of::<T>(), labels_hash)) {
-            Entry::Occupied(entry) => Ok(entry.get().downcast_ref::<T>().unwrap().clone()),
-            Entry::Vacant(_) => Err(Error::Msg(format!(
-                "metrics storage {} not found",
-                std::any::type_name::<T>()
-            ))),
+            let storage = match storages.entry(metric_id) {
+                Entry::Occupied(entry) => entry.into_mut().downcast_ref::<T>().unwrap(),
+                Entry::Vacant(_) => {
+                    return Err(Error::Msg(format!(
+                        "metrics storage {} not found",
+                        std::any::type_name::<T>()
+                    )))
+                }
+            };
+
+            Ok(&*(storage as *const T))
         }
     }
 
@@ -102,40 +117,44 @@ impl StorageRegistry {
     ///
     /// Returns an error if the given labels are invalid or if storage creation
     /// has failed.
-    pub fn get_or_create_storage<T: MetricStorage + 'static>(
+    pub fn get_or_create_storage<T: MetricStorage + Send + Sync + 'static>(
         &self,
         const_labels: HashMap<String, String>,
-    ) -> Result<T> {
-        Self::verify_const_labels(T::const_labels(), &const_labels)?;
-        let labels_hash = Self::hash_labels(T::const_labels(), &const_labels);
+    ) -> Result<&T> {
+        // Safety:
+        //
+        // We never remove storages from this registry, thus they will live
+        // for as long as this registry lives. We've also made storages
+        // `Pin`, so we never move them. This means that a reference
+        // to a storage will stay valid for as long as this registry lives.
+        //
+        // There are no issues with drop check because this registry
+        // does not implement custom drop, and the storage is `'static`.
+        //
+        // It is also ok to unlock mutex guard while holding reference
+        // to a storage because the storage is `Send + Sync`.
+        unsafe {
+            let metric_id = Self::make_id::<T>(&const_labels)?;
 
-        let mut storages = self.storages.lock().unwrap();
+            let mut storages = self.storages.lock().unwrap();
 
-        match storages.entry((TypeId::of::<T>(), labels_hash)) {
-            Entry::Occupied(entry) => Ok(entry.get().downcast_ref::<T>().unwrap().clone()),
-            Entry::Vacant(entry) => {
-                let storage = T::from_const_labels(&self.registry, const_labels)?;
-                entry.insert(Box::new(storage.clone()));
-                Ok(storage)
-            }
+            let storage = match storages.entry(metric_id) {
+                Entry::Occupied(entry) => entry.into_mut().downcast_ref::<T>().unwrap(),
+                Entry::Vacant(entry) => {
+                    let storage = T::from_const_labels(&self.registry, const_labels)?;
+                    entry.insert(Box::pin(storage)).downcast_ref::<T>().unwrap()
+                }
+            };
+
+            Ok(&*(storage as *const T))
         }
     }
 
-    fn hash_labels(labels_spec: &[&str], const_labels: &HashMap<String, String>) -> String {
-        let mut values = String::new();
-
-        for &label in labels_spec {
-            values.push_str(&const_labels[label]);
-            values.push('\0');
-        }
-
-        values
-    }
-
-    fn verify_const_labels(
-        labels_spec: &[&str],
+    fn make_id<T: MetricStorage + Send + Sync + 'static>(
         const_labels: &HashMap<String, String>,
-    ) -> Result<()> {
+    ) -> Result<StorageId> {
+        let labels_spec = T::const_labels();
+
         if labels_spec.len() != const_labels.len() {
             return Err(Error::Msg(format!(
                 "invalid number of const labels: expected {}, got {}",
@@ -144,13 +163,18 @@ impl StorageRegistry {
             )));
         }
 
-        for &label in labels_spec {
-            if !const_labels.contains_key(label) {
+        let mut values = String::new();
+
+        for &label in T::const_labels() {
+            if let Some(value) = const_labels.get(label) {
+                values.push_str(value);
+                values.push('\0');
+            } else {
                 return Err(Error::Msg(format!("label {:?} is missing", label)));
             }
         }
 
-        Ok(())
+        Ok((TypeId::of::<T>(), values))
     }
 }
 

@@ -14,3 +14,6 @@ Derive macro to instantiate prometheus metrics with ease
 [dependencies]
 prometheus = "0.12"
 prometheus-metric-storage-derive = { version = "0.1.1", path = "../prometheus-metric-storage-derive" }
+
+[dev-dependencies]
+once_cell = "1.8.0"

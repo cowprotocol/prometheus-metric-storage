@@ -124,7 +124,7 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
 
             fn instance(
                 registry: &prometheus_metric_storage::StorageRegistry, #(#label_idents: String,)*
-            ) -> prometheus_metric_storage::Result<Self> {
+            ) -> prometheus_metric_storage::Result<&Self> {
                 let mut const_labels = std::collections::HashMap::new();
                 #(const_labels.insert(#labels.to_string(), #label_idents);)*
 
