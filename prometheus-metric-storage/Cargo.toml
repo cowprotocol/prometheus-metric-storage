@@ -14,3 +14,4 @@ Derive macro to instantiate prometheus metrics with ease
 [dependencies]
 prometheus = "0.12"
 prometheus-metric-storage-derive = { version = "0.2.0", path = "../prometheus-metric-storage-derive" }
+lazy_static = "1.4"

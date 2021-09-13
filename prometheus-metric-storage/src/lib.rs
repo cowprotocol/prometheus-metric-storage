@@ -190,6 +190,16 @@ impl Debug for StorageRegistry {
     }
 }
 
+/// Get the default storage registry that uses [`prometheus::default_registry`].
+pub fn default_storage_registry() -> &'static StorageRegistry {
+    lazy_static::lazy_static! {
+        static ref REGISTRY: StorageRegistry =
+            StorageRegistry::new(prometheus::default_registry().clone());
+    }
+
+    &REGISTRY as &StorageRegistry
+}
+
 /// This trait should be derived with `#[derive]` statement.
 pub trait MetricStorage: Sized {
     /// Get array of const labels used in this storage.
