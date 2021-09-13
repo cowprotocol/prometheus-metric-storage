@@ -1,6 +1,6 @@
 use prometheus_metric_storage::{MetricStorage, StorageRegistry};
 
-#[derive(Clone, MetricStorage)]
+#[derive(MetricStorage)]
 #[metric(subsystem = "transport", labels("endpoint"))]
 struct Metrics {
     /// Number of requests that are currently inflight.

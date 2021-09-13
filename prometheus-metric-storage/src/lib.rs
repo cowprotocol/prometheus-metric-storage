@@ -191,7 +191,7 @@ impl Debug for StorageRegistry {
 }
 
 /// This trait should be derived with `#[derive]` statement.
-pub trait MetricStorage: Sized + Clone {
+pub trait MetricStorage: Sized {
     /// Get array of const labels used in this storage.
     ///
     /// Labels are listed in the same order as they appear
