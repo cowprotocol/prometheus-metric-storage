@@ -17,17 +17,17 @@ struct Metrics {
 fn main() {
     let registry = StorageRegistry::default();
 
-    let metrics = Metrics::instance(&registry, "infura_mainnet".into()).unwrap();
+    let metrics = Metrics::instance(&registry, "infura_mainnet").unwrap();
     metrics.inflight.inc();
     metrics.requests_finished.with_label_values(&["200"]).inc();
     metrics.requests_duration_seconds.observe(0.015);
 
-    let metrics = Metrics::instance(&registry, "infura_rinkeby".into()).unwrap();
+    let metrics = Metrics::instance(&registry, "infura_rinkeby").unwrap();
     metrics.inflight.inc();
     metrics.requests_finished.with_label_values(&["200"]).inc();
     metrics.requests_duration_seconds.observe(0.025);
 
-    let metrics = Metrics::instance(&registry, "infura_mainnet".into()).unwrap();
+    let metrics = Metrics::instance(&registry, "infura_mainnet").unwrap();
     metrics.inflight.inc();
 
     dbg!(registry.gather());

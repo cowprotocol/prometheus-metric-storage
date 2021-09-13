@@ -107,16 +107,16 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
         )]
         impl #name {
             fn new_unregistered(
-                #(#label_idents: String,)*
+                #(#label_idents: impl Into<String>,)*
             ) -> prometheus_metric_storage::Result<Self> {
                 let mut const_labels = std::collections::HashMap::new();
-                #(const_labels.insert(#labels.to_string(), #label_idents);)*
+                #(const_labels.insert(#labels.to_string(), #label_idents.into());)*
 
                 <Self as prometheus_metric_storage::MetricStorage>::from_const_labels_unregistered(const_labels)
             }
 
             fn new(
-                registry: &prometheus_metric_storage::Registry, #(#label_idents: String,)*
+                registry: &prometheus_metric_storage::Registry, #(#label_idents: impl Into<String>,)*
             ) -> prometheus_metric_storage::Result<Self> {
                 let metrics = Self::new_unregistered(#(#label_idents,)*)?;
                 <Self as prometheus_metric_storage::MetricStorage>::register(&metrics, registry)?;
@@ -124,10 +124,10 @@ fn expand(input: DeriveInput) -> Result<TokenStream> {
             }
 
             fn instance(
-                registry: &prometheus_metric_storage::StorageRegistry, #(#label_idents: String,)*
+                registry: &prometheus_metric_storage::StorageRegistry, #(#label_idents: impl Into<String>,)*
             ) -> prometheus_metric_storage::Result<&Self> {
                 let mut const_labels = std::collections::HashMap::new();
-                #(const_labels.insert(#labels.to_string(), #label_idents);)*
+                #(const_labels.insert(#labels.to_string(), #label_idents.into());)*
 
                 registry.get_or_create_storage::<Self>(const_labels)
             }
