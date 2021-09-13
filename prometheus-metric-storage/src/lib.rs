@@ -110,9 +110,7 @@ impl StorageRegistry {
         // Safety:
         //
         // See `get_or_create_storage` for details.
-        unsafe {
-            Ok(&*(storage as *const T))
-        }
+        unsafe { Ok(&*(storage as *const T)) }
     }
 
     /// Returns a storage of the given type with tha given labels. If such
@@ -152,9 +150,7 @@ impl StorageRegistry {
         //
         // Note that we're not returning a `'static` reference, but rather
         // a reference with the lifetime of `&self`.
-        unsafe {
-            Ok(&*(storage as *const T))
-        }
+        unsafe { Ok(&*(storage as *const T)) }
     }
 
     fn make_id<T: MetricStorage + Send + Sync + 'static>(
