@@ -30,6 +30,10 @@ type StorageId = (TypeId, String);
 /// having to use lazy statics.
 pub struct StorageRegistry {
     registry: Registry,
+
+    /// # Safety
+    ///
+    /// Never remove or replace items in this hashmap.
     storages: Mutex<HashMap<StorageId, Pin<Box<dyn Any + Send + Sync>>>>,
 }
 
@@ -89,24 +93,24 @@ impl StorageRegistry {
         &self,
         const_labels: HashMap<String, String>,
     ) -> Result<&T> {
+        let metric_id = Self::make_id::<T>(&const_labels)?;
+
+        let mut storages = self.storages.lock().unwrap();
+
+        let storage = match storages.entry(metric_id) {
+            Entry::Occupied(entry) => entry.into_mut().downcast_ref::<T>().unwrap(),
+            Entry::Vacant(_) => {
+                return Err(Error::Msg(format!(
+                    "metrics storage {} not found",
+                    std::any::type_name::<T>()
+                )))
+            }
+        };
+
         // Safety:
         //
         // See `get_or_create_storage` for details.
         unsafe {
-            let metric_id = Self::make_id::<T>(&const_labels)?;
-
-            let mut storages = self.storages.lock().unwrap();
-
-            let storage = match storages.entry(metric_id) {
-                Entry::Occupied(entry) => entry.into_mut().downcast_ref::<T>().unwrap(),
-                Entry::Vacant(_) => {
-                    return Err(Error::Msg(format!(
-                        "metrics storage {} not found",
-                        std::any::type_name::<T>()
-                    )))
-                }
-            };
-
             Ok(&*(storage as *const T))
         }
     }
@@ -121,6 +125,18 @@ impl StorageRegistry {
         &self,
         const_labels: HashMap<String, String>,
     ) -> Result<&T> {
+        let metric_id = Self::make_id::<T>(&const_labels)?;
+
+        let mut storages = self.storages.lock().unwrap();
+
+        let storage = match storages.entry(metric_id) {
+            Entry::Occupied(entry) => entry.into_mut().downcast_ref::<T>().unwrap(),
+            Entry::Vacant(entry) => {
+                let storage = T::from_const_labels(&self.registry, const_labels)?;
+                entry.insert(Box::pin(storage)).downcast_ref::<T>().unwrap()
+            }
+        };
+
         // Safety:
         //
         // We never remove storages from this registry, thus they will live
@@ -133,19 +149,10 @@ impl StorageRegistry {
         //
         // It is also ok to unlock mutex guard while holding reference
         // to a storage because the storage is `Send + Sync`.
+        //
+        // Note that we're not returning a `'static` reference, but rather
+        // a reference with the lifetime of `&self`.
         unsafe {
-            let metric_id = Self::make_id::<T>(&const_labels)?;
-
-            let mut storages = self.storages.lock().unwrap();
-
-            let storage = match storages.entry(metric_id) {
-                Entry::Occupied(entry) => entry.into_mut().downcast_ref::<T>().unwrap(),
-                Entry::Vacant(entry) => {
-                    let storage = T::from_const_labels(&self.registry, const_labels)?;
-                    entry.insert(Box::pin(storage)).downcast_ref::<T>().unwrap()
-                }
-            };
-
             Ok(&*(storage as *const T))
         }
     }
