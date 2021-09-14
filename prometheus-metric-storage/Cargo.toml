@@ -1,6 +1,6 @@
 [package]
 name = "prometheus-metric-storage"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Tamika Nomara <taminomara@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -12,5 +12,5 @@ readme = "../README.md"
 
 [dependencies]
 prometheus = "0.12"
-prometheus-metric-storage-derive = { version = "0.2.0", path = "../prometheus-metric-storage-derive" }
+prometheus-metric-storage-derive = { version = "0.3.0", path = "../prometheus-metric-storage-derive" }
 lazy_static = "1.4"
