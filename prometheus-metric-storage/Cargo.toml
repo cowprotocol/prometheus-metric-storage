@@ -7,9 +7,8 @@ license = "MIT"
 repository = "https://github.com/taminomara/prometheus-metric-storage"
 homepage = "https://github.com/taminomara/prometheus-metric-storage"
 documentation = "https://docs.rs/prometheus-metric-storage"
-description = """
-Derive macro to instantiate prometheus metrics with ease
-"""
+description = "Derive macro to instantiate and register prometheus metrics without having to write tons of boilerplate code"
+readme = "../README.md"
 
 [dependencies]
 prometheus = "0.12"

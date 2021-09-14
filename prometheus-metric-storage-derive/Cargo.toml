@@ -7,9 +7,7 @@ license = "MIT"
 repository = "https://github.com/taminomara/prometheus-metric-storage"
 homepage = "https://github.com/taminomara/prometheus-metric-storage"
 documentation = "https://docs.rs/prometheus-metric-storage"
-description = """
-Implementation details for prometheus-metric-storage
-"""
+description = "Implementation details for prometheus-metric-storage"
 
 [lib]
 proc-macro = true
