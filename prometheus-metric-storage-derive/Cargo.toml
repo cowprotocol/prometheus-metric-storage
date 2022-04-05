@@ -1,6 +1,6 @@
 [package]
 name = "prometheus-metric-storage-derive"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Tamika Nomara <taminomara@gmail.com>"]
 edition = "2018"
 license = "MIT"
