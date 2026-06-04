@@ -11,6 +11,6 @@ description = "Derive macro to instantiate and register prometheus metrics witho
 readme = "../README.md"
 
 [dependencies]
-prometheus = "0.13"
+prometheus = "0.14"
 prometheus-metric-storage-derive = { version = "0.4.0", path = "../prometheus-metric-storage-derive" }
 lazy_static = "1.4"
